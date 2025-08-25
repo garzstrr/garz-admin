@@ -342,6 +342,15 @@
             align-items: center;
             gap: 8px;
         }
+
+        .debug-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fc;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--dark);
+        }
         
         @media (max-width: 768px) {
             .stats-cards {
@@ -417,6 +426,15 @@
                     <p>Ditolak</p>
                 </div>
             </div>
+
+            <div class="debug-info">
+                <p><strong>Info Debug:</strong></p>
+                <p>Total pengguna: <span id="debug-user-count">0</span></p>
+                <p>Data tersimpan: <span id="debug-data-saved">Tidak</span></p>
+                <button class="btn" onclick="forceReload()" style="margin-top: 10px;">
+                    <i class="fas fa-redo"></i> Force Reload Data
+                </button>
+            </div>
             
             <div class="refresh-section">
                 <!-- Pencarian -->
@@ -485,14 +503,32 @@
         
         // Fungsi untuk memuat data pengguna
         function loadUsers() {
-            // Ambil data terbaru dari localStorage
-            users = JSON.parse(localStorage.getItem('users')) || [];
-            
-            // Perbarui statistik
-            updateStats();
-            
-            // Perbarui daftar pengguna
-            updateUserList();
+            try {
+                // Ambil data terbaru dari localStorage
+                const storedUsers = localStorage.getItem('users');
+                
+                if (!storedUsers) {
+                    console.log("Tidak ada data pengguna di localStorage");
+                    users = [];
+                } else {
+                    users = JSON.parse(storedUsers);
+                    console.log("Data pengguna dimuat:", users.length, "pengguna");
+                }
+                
+                // Perbarui statistik
+                updateStats();
+                
+                // Perbarui daftar pengguna
+                updateUserList();
+                
+                // Perbarui info debug
+                updateDebugInfo();
+            } catch (error) {
+                console.error("Error loading users:", error);
+                const notification = document.getElementById('admin-login-notification');
+                notification.className = 'notification notification-error';
+                notification.innerHTML = '<i class="fas fa-exclamation-circle"></i> Gagal memuat data pengguna!';
+            }
         }
         
         // Fungsi untuk login admin
@@ -675,38 +711,13 @@
         
         // Fungsi untuk menyetujui pengguna
         function approveUser(userId) {
-            // Ambil data terbaru dari localStorage
-            const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
-            const userIndex = updatedUsers.findIndex(u => u.id === userId);
-            
-            if (userIndex !== -1) {
-                updatedUsers[userIndex].approved = true;
-                localStorage.setItem('users', JSON.stringify(updatedUsers));
-                
-                // Perbarui data di memori
-                users = updatedUsers;
-                
-                // Perbarui tampilan
-                updateStats();
-                updateUserList();
-                
-                // Tampilkan notifikasi sukses
-                const notification = document.getElementById('admin-login-notification');
-                notification.className = 'notification notification-success';
-                notification.innerHTML = `<i class="fas fa-check-circle"></i> Pengguna ${updatedUsers[userIndex].name} telah disetujui!`;
-            }
-        }
-        
-        // Fungsi untuk menolak pengguna
-        function rejectUser(userId) {
-            if (confirm('Apakah Anda yakin ingin menolak pengguna ini?')) {
+            try {
                 // Ambil data terbaru dari localStorage
                 const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
                 const userIndex = updatedUsers.findIndex(u => u.id === userId);
                 
                 if (userIndex !== -1) {
-                    const userName = updatedUsers[userIndex].name;
-                    updatedUsers.splice(userIndex, 1);
+                    updatedUsers[userIndex].approved = true;
                     localStorage.setItem('users', JSON.stringify(updatedUsers));
                     
                     // Perbarui data di memori
@@ -719,7 +730,52 @@
                     // Tampilkan notifikasi sukses
                     const notification = document.getElementById('admin-login-notification');
                     notification.className = 'notification notification-success';
-                    notification.innerHTML = `<i class="fas fa-check-circle"></i> Pengguna ${userName} telah ditolak!`;
+                    notification.innerHTML = `<i class="fas fa-check-circle"></i> Pengguna ${updatedUsers[userIndex].name} telah disetujui!`;
+                    
+                    // Perbarui info debug
+                    updateDebugInfo();
+                }
+            } catch (error) {
+                console.error("Error approving user:", error);
+                const notification = document.getElementById('admin-login-notification');
+                notification.className = 'notification notification-error';
+                notification.innerHTML = '<i class="fas fa-exclamation-circle"></i> Gagal menyetujui pengguna!';
+            }
+        }
+        
+        // Fungsi untuk menolak pengguna
+        function rejectUser(userId) {
+            if (confirm('Apakah Anda yakin ingin menolak pengguna ini?')) {
+                try {
+                    // Ambil data terbaru dari localStorage
+                    const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
+                    const userIndex = updatedUsers.findIndex(u => u.id === userId);
+                    
+                    if (userIndex !== -1) {
+                        const userName = updatedUsers[userIndex].name;
+                        updatedUsers.splice(userIndex, 1);
+                        localStorage.setItem('users', JSON.stringify(updatedUsers));
+                        
+                        // Perbarui data di memori
+                        users = updatedUsers;
+                        
+                        // Perbarui tampilan
+                        updateStats();
+                        updateUserList();
+                        
+                        // Tampilkan notifikasi sukses
+                        const notification = document.getElementById('admin-login-notification');
+                        notification.className = 'notification notification-success';
+                        notification.innerHTML = `<i class="fas fa-check-circle"></i> Pengguna ${userName} telah ditolak!`;
+                        
+                        // Perbarui info debug
+                        updateDebugInfo();
+                    }
+                } catch (error) {
+                    console.error("Error rejecting user:", error);
+                    const notification = document.getElementById('admin-login-notification');
+                    notification.className = 'notification notification-error';
+                    notification.innerHTML = '<i class="fas fa-exclamation-circle"></i> Gagal menolak pengguna!';
                 }
             }
         }
@@ -734,7 +790,7 @@
                 autoRefreshInterval = setInterval(() => {
                     console.log("Auto refresh data pengguna...");
                     loadUsers();
-                }, 5000); // Refresh setiap 5 detik
+                }, 3000); // Refresh setiap 3 detik
             }
         }
         
@@ -744,6 +800,23 @@
                 clearInterval(autoRefreshInterval);
                 autoRefreshInterval = null;
             }
+        }
+        
+        // Fungsi untuk update info debug
+        function updateDebugInfo() {
+            const storedUsers = JSON.parse(localStorage.getItem('users') || '[]');
+            document.getElementById('debug-user-count').textContent = storedUsers.length;
+            document.getElementById('debug-data-saved').textContent = localStorage.getItem('users') ? 'Ya' : 'Tidak';
+        }
+        
+        // Fungsi untuk force reload data
+        function forceReload() {
+            localStorage.removeItem('users');
+            loadUsers();
+            
+            const notification = document.getElementById('admin-login-notification');
+            notification.className = 'notification notification-info';
+            notification.innerHTML = '<i class="fas fa-info-circle"></i> Data telah direset dan dimuat ulang!';
         }
         
         // Inisialisasi
